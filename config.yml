@@ -1,0 +1,10 @@
+# DEFINE THE DATA DIRECTORY
+
+data_storage:
+  data_location: "/home/marc/msd/data/"
+  pt_location: "/home/marc/msd/pt/"
+
+aws_links:
+  liver: "https://msd-for-monai.s3-us-west-2.amazonaws.com/Task03_Liver.tar"
+
+
