@@ -252,8 +252,11 @@ def main():
     # initialize the loss function.
     loss_function = torch.nn.CrossEntropyLoss()
 
+    train_loss = 0
+    val_loss = 0
     # easy training loop.
     for epoch in range(1, 100):
+        # train the model.
         for x, y in train_loader:
             # forward pass.
             output = model(x)
@@ -264,7 +267,28 @@ def main():
             loss.backward()
             # update the parameters.
             optimizer.step()
-    
+            # update the loss.
+            train_loss += loss.item()
+
+
+        # iterate over validation dataset.
+        for x, y in val_loader:
+            # forward pass.
+            output = model(x)
+            # calculate the loss.
+            loss = loss_function(output, y)
+            # combine loss
+            val_loss += loss.item()
+
+        # calculate the mean train_loss and val_loss.
+        train_loss = train_loss / len(train_loader)
+        val_loss = val_loss / len(val_loader)
+        # print the train_loss and val_loss.
+        print("Epoch: {} \t Train Loss: {} \t Val Loss: {}".format(epoch, train_loss, val_loss))
+
+
+    # save the model.
+    torch.save(model.state_dict(), "model.pt")
 
 
 
