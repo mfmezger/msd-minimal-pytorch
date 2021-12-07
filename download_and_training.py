@@ -4,13 +4,14 @@ import torch
 import nibabel as nib
 from monai.apps import extractall
 from pathlib import Path
+import numpy as np
 import random
 import shutil
 import SimpleITK as sitk
 # from torchio.transforms import ZNormalization
 from PTDataSet import TorchDataSet
 from parallel_sync import wget
-from monai.networks.net import UNet
+from monai.networks.nets import UNet
 
 
 def win_scale(data, wl, ww, dtype, out_range):
@@ -35,6 +36,12 @@ def preprocessing_ct(image):
     return image
 
 
+def preprocessing_mr(image):
+    """Preprocess the CT images."""
+    image = win_scale(image, 40, 400, np.float32, (0, 1))
+    return image
+
+
 def save_pt(image, name, save_dir, mask=None):
     """Save the images and labels as pytorch files. If without mask it is considered to be the test image and will be stored without a mask."""
 
@@ -42,17 +49,17 @@ def save_pt(image, name, save_dir, mask=None):
     if mask is None:
         image = torch.from_numpy(image)
 
-        #path = save_dir + "/" + str(name) + ".pt"
+        # path = save_dir + "/" + str(name) + ".pt"
         path = os.path.join(save_dir, str(name) + ".pt")
-        
+
         torch.save({"vol": image, "id": name}, path)
     else:
         image = torch.from_numpy(image)
         mask = torch.from_numpy(mask)
 
-        #path = save_dir + "/" + str(name) + ".pt"
+        # path = save_dir + "/" + str(name) + ".pt"
         path = os.path.join(save_dir, str(name) + ".pt")
-        
+
         torch.save({"vol": image, "mask": mask, "id": name}, path)
 
 
@@ -169,10 +176,9 @@ def prepare_conversion(cfg):
     convert_images(cfg, liver_dir, os.path.join(pt_dir, "Task02_Heart"))
 
 
-
 def get_folders(root_dir):
     """Return the folder locations."""
-    
+
     liver_dir = os.path.join(root_dir, "Task02_Heart")
     return liver_dir
 
@@ -203,13 +209,13 @@ def download(root_dir, cfg):
     """Download the data from AWS Open Data Repository."""
     get_heart_aws = cfg["aws_links"]["heart"]
 
-
     # Liver
     compressed_file = os.path.join(root_dir, "Task02_Heart.tar")
     data_dir = os.path.join(root_dir, "Task02_Heart")
     if not os.path.exists(compressed_file):
         wget.download(root_dir, get_heart_aws)
         extractall(compressed_file, data_dir)
+
 
 def main():
     # define the data directory
@@ -230,9 +236,8 @@ def main():
     # start the dataloading here. integrate the data augmentation.
     pt_path = cfg["data_storage"]["pt_location"]
 
-    pt_path_train = os.join.path(pt_path, "Task02_Heart", "train")
-    pt_path_val = os.join.path(pt_path, "Task02_Heart", "validation")
-
+    pt_path_train = os.path.join(pt_path, "Task02_Heart", "train")
+    pt_path_val = os.path.join(pt_path, "Task02_Heart", "validation")
 
     train = TorchDataSet(pt_path_train)
     val = TorchDataSet(pt_path_val)
@@ -240,8 +245,7 @@ def main():
     # create the dataloader.
     train_loader = torch.utils.data.DataLoader(train, batch_size=1, shuffle=True, num_workers=4)
     val_loader = torch.utils.data.DataLoader(val, batch_size=1, shuffle=False, num_workers=4)
-    
-    
+
     # initialize the model.
     model = UNet(spatial_dims=3, in_channels=1, out_channels=1)
 
@@ -269,7 +273,6 @@ def main():
             # update the loss.
             train_loss += loss.item()
 
-
         # iterate over validation dataset.
         for x, y in val_loader:
             # forward pass.
@@ -285,11 +288,8 @@ def main():
         # print the train_loss and val_loss.
         print("Epoch: {} \t Train Loss: {} \t Val Loss: {}".format(epoch, train_loss, val_loss))
 
-
     # save the model.
     torch.save(model.state_dict(), "model.pt")
-
-
 
 
 if __name__ == "__main__":
