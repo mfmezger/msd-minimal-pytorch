@@ -8,7 +8,9 @@ import random
 import shutil
 import SimpleITK as sitk
 # from torchio.transforms import ZNormalization
+from PTDataSet import TorchDataSet
 from parallel_sync import wget
+from monai.networks.net import UNet
 
 
 def win_scale(data, wl, ww, dtype, out_range):
@@ -197,6 +199,18 @@ def train_test_split(cfg):
             shutil.move(os.path.join(f, "train", file), os.path.join(f, "validation"))
 
 
+def download(root_dir, cfg):
+    """Download the data from AWS Open Data Repository."""
+    get_liver_aws = cfg["aws_links"]["liver"]
+
+
+    # Liver
+    compressed_file = os.path.join(root_dir, "Task03_Liver.tar")
+    data_dir = os.path.join(root_dir, "Task03_Liver")
+    if not os.path.exists(compressed_file):
+        wget.download(root_dir, get_liver_aws)
+        extractall(compressed_file, data_dir)
+
 def main():
     # define the data directory
     with open("config.yml", "r") as ymlfile:
@@ -213,18 +227,46 @@ def main():
     # start the train val split.
     train_test_split(cfg)
 
+    # start the dataloading here. integrate the data augmentation.
+    pt_path = cfg["data_storage"]["pt_location"]
 
-def download(root_dir, cfg):
-    """Download the data from AWS Open Data Repository."""
-    get_liver_aws = cfg["aws_links"]["liver"]
+    # FIXME: Search smaller dataset.
+    pt_path_train = os.join.path(pt_path, "Task03_Liver", "train")
+    pt_path_val = os.join.path(pt_path, "Task03_Liver", "validation")
 
 
-    # Liver
-    compressed_file = os.path.join(root_dir, "Task03_Liver.tar")
-    data_dir = os.path.join(root_dir, "Task03_Liver")
-    if not os.path.exists(compressed_file):
-        wget.download(root_dir, get_liver_aws)
-        extractall(compressed_file, data_dir)
+    train = TorchDataSet(pt_path_train)
+    val = TorchDataSet(pt_path_val)
+
+    # create the dataloader.
+    train_loader = torch.utils.data.DataLoader(train, batch_size=1, shuffle=True, num_workers=4)
+    val_loader = torch.utils.data.DataLoader(val, batch_size=1, shuffle=False, num_workers=4)
+    
+    
+    # initialize the model.
+    model = UNet(spatial_dims=3, in_channels=1, out_channels=1)
+
+    # initialize the optimizer.
+    optimizer = torch.optim.Adam(model.parameters(), lr=1e-4)
+
+    # initialize the loss function.
+    loss_function = torch.nn.CrossEntropyLoss()
+
+    # easy training loop.
+    for epoch in range(1, 100):
+        for x, y in train_loader:
+            # forward pass.
+            output = model(x)
+            # calculate the loss.
+            loss = loss_function(output, y)
+            # backward pass.
+            optimizer.zero_grad()
+            loss.backward()
+            # update the parameters.
+            optimizer.step()
+    
+
+
 
 
 if __name__ == "__main__":
