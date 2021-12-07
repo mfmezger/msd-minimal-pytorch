@@ -11,6 +11,7 @@ import SimpleITK as sitk
 # from torchio.transforms import ZNormalization
 from PTDataSet import TorchDataSet
 from parallel_sync import wget
+from tqdm import tqdm
 from monai.networks.nets import UNet
 
 
@@ -67,6 +68,7 @@ def convert_images(cfg, data_dir, save_dir):
     """Convert images to pytorch files."""
 
     # create lists of the images.
+    data_dir = os.path.join(data_dir,  "Task02_Heart")
     label_list = os.listdir(os.path.join(data_dir, "labelsTr"))
     images_list = os.listdir(os.path.join(data_dir, "imagesTr"))
     image_list_test = os.listdir(os.path.join(data_dir, "imagesTs"))
@@ -84,7 +86,8 @@ def convert_images(cfg, data_dir, save_dir):
 
     # start the conversion of training images and training labels.
     # load the volumes from images and labels.
-    for image, label in zip(images_list, label_list):
+    # TODO: add progress bar
+    for image, label in tqdm(zip(images_list, label_list)):
         # load the images and labels.
         image_path = os.path.join(data_dir, "imagesTr", image)
         label_path = os.path.join(data_dir, "labelsTr", label)
@@ -132,7 +135,7 @@ def convert_images(cfg, data_dir, save_dir):
         image = nib.load(image_path)
         image = image.get_fdata()
 
-        if len(image.shape) > 2:
+        if len(image.shape) > 3:
             image = image.transpose(3, 2, 0, 1)
 
         else:
@@ -160,7 +163,7 @@ def prepare_conversion(cfg):
     Path(pt_dir).mkdir(parents=False, exist_ok=True)
 
     # retrive folder names.
-    brain_dir, colon_dir, heart_dir, hippo_dir, liver_dir, lung_dir, pancreas_dir, prostate_dir, spleen_dir, vessel_dir = get_folders(root_dir)
+    heart_dir = get_folders(root_dir)
 
     # create new folders from names for the tasks
     folder_list = ["Task02_Heart"]
@@ -173,23 +176,23 @@ def prepare_conversion(cfg):
         Path(os.path.join(pt_dir, folder, "test")).mkdir(parents=False, exist_ok=True)
 
     # start the conversion to pt files.
-    convert_images(cfg, liver_dir, os.path.join(pt_dir, "Task02_Heart"))
+    convert_images(cfg, heart_dir, os.path.join(pt_dir, "Task02_Heart"))
 
 
 def get_folders(root_dir):
     """Return the folder locations."""
 
-    liver_dir = os.path.join(root_dir, "Task02_Heart")
-    return liver_dir
+    heart_dir = os.path.join(root_dir, "Task02_Heart")
+    return heart_dir
 
 
 def train_test_split(cfg):
     """Split the training data randomly in train and validation based on a   70%/30% split."""
     root_dir = cfg["data_storage"]["pt_location"]
-    liver_dir = get_folders(root_dir)
+    heart_dir = get_folders(root_dir)
 
     # get in every folder, randomly select 30% and move them to an extra validation folder. (move, not copy)
-    for f in [liver_dir]:
+    for f in [heart_dir]:
         # create new val folder.
         Path(os.path.join(f, "validation")).mkdir(parents=False, exist_ok=True)
         # get the list of files in the folder.
@@ -209,7 +212,7 @@ def download(root_dir, cfg):
     """Download the data from AWS Open Data Repository."""
     get_heart_aws = cfg["aws_links"]["heart"]
 
-    # Liver
+    # Heart
     compressed_file = os.path.join(root_dir, "Task02_Heart.tar")
     data_dir = os.path.join(root_dir, "Task02_Heart")
     if not os.path.exists(compressed_file):
