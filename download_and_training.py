@@ -31,7 +31,7 @@ def win_scale(data, wl, ww, dtype, out_range):
 
 def preprocessing_ct(image):
     """Preprocess the CT images."""
-    image = win_scale(image, 60, 400, np.float32, (0, 1))
+    image = win_scale(image, 40, 400, np.float32, (0, 1))
     return image
 
 
@@ -70,7 +70,7 @@ def convert_images(cfg, data_dir, save_dir):
     image_list_test = [x for x in image_list_test if not x.startswith(".")]
 
     # do the preprocessing based on the category.
-    ct_list = ["Task03_Liver"]
+    ct_list = ["Task02_Heart"]
     ct_preprocessing_decision = False
     if data_dir in ct_list:
         ct_preprocessing_decision = True
@@ -156,7 +156,7 @@ def prepare_conversion(cfg):
     brain_dir, colon_dir, heart_dir, hippo_dir, liver_dir, lung_dir, pancreas_dir, prostate_dir, spleen_dir, vessel_dir = get_folders(root_dir)
 
     # create new folders from names for the tasks
-    folder_list = ["Task03_Liver"]
+    folder_list = ["Task02_Heart"]
 
     # create new folders from names in folder list in pt_dir
     for folder in folder_list:
@@ -166,14 +166,14 @@ def prepare_conversion(cfg):
         Path(os.path.join(pt_dir, folder, "test")).mkdir(parents=False, exist_ok=True)
 
     # start the conversion to pt files.
-    convert_images(cfg, liver_dir, os.path.join(pt_dir, "Task03_Liver"))
+    convert_images(cfg, liver_dir, os.path.join(pt_dir, "Task02_Heart"))
 
 
 
 def get_folders(root_dir):
     """Return the folder locations."""
     
-    liver_dir = os.path.join(root_dir, "Task03_Liver")
+    liver_dir = os.path.join(root_dir, "Task02_Heart")
     return liver_dir
 
 
@@ -201,14 +201,14 @@ def train_test_split(cfg):
 
 def download(root_dir, cfg):
     """Download the data from AWS Open Data Repository."""
-    get_liver_aws = cfg["aws_links"]["liver"]
+    get_heart_aws = cfg["aws_links"]["heart"]
 
 
     # Liver
-    compressed_file = os.path.join(root_dir, "Task03_Liver.tar")
-    data_dir = os.path.join(root_dir, "Task03_Liver")
+    compressed_file = os.path.join(root_dir, "Task02_Heart.tar")
+    data_dir = os.path.join(root_dir, "Task02_Heart")
     if not os.path.exists(compressed_file):
-        wget.download(root_dir, get_liver_aws)
+        wget.download(root_dir, get_heart_aws)
         extractall(compressed_file, data_dir)
 
 def main():
@@ -230,9 +230,8 @@ def main():
     # start the dataloading here. integrate the data augmentation.
     pt_path = cfg["data_storage"]["pt_location"]
 
-    # FIXME: Search smaller dataset.
-    pt_path_train = os.join.path(pt_path, "Task03_Liver", "train")
-    pt_path_val = os.join.path(pt_path, "Task03_Liver", "validation")
+    pt_path_train = os.join.path(pt_path, "Task02_Heart", "train")
+    pt_path_val = os.join.path(pt_path, "Task02_Heart", "validation")
 
 
     train = TorchDataSet(pt_path_train)

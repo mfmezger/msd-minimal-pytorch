@@ -7,5 +7,6 @@ data_storage:
 aws_links:
   liver: "https://msd-for-monai.s3-us-west-2.amazonaws.com/Task03_Liver.tar"
   liver_eu: "https://msd-for-monai-eu.s3-eu-west-2.amazonaws.com/Task03_Liver.tar"
+  heart: "https://msd-for-monai.s3-us-west-2.amazonaws.com/Task02_Heart.tar"
 
 
