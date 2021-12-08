@@ -13,33 +13,18 @@ from PTDataSet import TorchDataSet
 from parallel_sync import wget
 from tqdm import tqdm
 from monai.networks.nets import UNet
-
-
-def win_scale(data, wl, ww, dtype, out_range):
-    """
-    Scale pixel intensity data using specified window level, width, and intensity range.
-    """
-
-    data_new = np.empty(data.shape, dtype=np.double)
-    data_new.fill(out_range[1] - 1)
-
-    data_new[data <= (wl - ww / 2.0)] = out_range[0]
-    data_new[(data > (wl - ww / 2.0)) & (data <= (wl + ww / 2.0))] = \
-        ((data[(data > (wl - ww / 2.0)) & (data <= (wl + ww / 2.0))] - (wl - 0.5)) / (ww - 1.0) + 0.5) * (out_range[1] - out_range[0]) + out_range[0]
-    data_new[data > (wl + ww / 2.0)] = out_range[1] - 1
-
-    return data_new.astype(dtype)
+from utils import interval_mapping, resize_volume
+from monai.losses import DiceLoss
 
 
 def preprocessing_ct(image):
     """Preprocess the CT images."""
-    image = win_scale(image, 40, 400, np.float32, (0, 1))
     return image
 
 
 def preprocessing_mr(image):
     """Preprocess the CT images."""
-    image = win_scale(image, 40, 400, np.float32, (0, 1))
+    image = interval_mapping(image, image.min(), image.max(), 0, 1)
     return image
 
 
@@ -68,7 +53,7 @@ def convert_images(cfg, data_dir, save_dir):
     """Convert images to pytorch files."""
 
     # create lists of the images.
-    data_dir = os.path.join(data_dir,  "Task02_Heart")
+    data_dir = os.path.join(data_dir, "Task02_Heart")
     label_list = os.listdir(os.path.join(data_dir, "labelsTr"))
     images_list = os.listdir(os.path.join(data_dir, "imagesTr"))
     image_list_test = os.listdir(os.path.join(data_dir, "imagesTs"))
@@ -79,14 +64,13 @@ def convert_images(cfg, data_dir, save_dir):
     image_list_test = [x for x in image_list_test if not x.startswith(".")]
 
     # do the preprocessing based on the category.
-    ct_list = ["Task02_Heart"]
+    ct_list = [""]
     ct_preprocessing_decision = False
     if data_dir in ct_list:
         ct_preprocessing_decision = True
 
     # start the conversion of training images and training labels.
     # load the volumes from images and labels.
-    # TODO: add progress bar
     for image, label in tqdm(zip(images_list, label_list)):
         # load the images and labels.
         image_path = os.path.join(data_dir, "imagesTr", image)
@@ -111,6 +95,9 @@ def convert_images(cfg, data_dir, save_dir):
 
         # extract the name of the image.
         name = image_path.split("/")[-1].split(".")[0]
+
+        image = resize_volume(image, target_shape=[120, 320, 320])
+        label = resize_volume(label, target_shape=[120, 320, 320])
 
         # choose prepocessing based on the category.
         if ct_preprocessing_decision:
@@ -229,13 +216,14 @@ def main():
 
     # start by downloading the data
     download(root_dir, cfg)
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     # then extract the data
-    prepare_conversion(cfg)
+    if not os.path.exists(os.path.join(cfg["data_storage"]["pt_location"], "Task02_Heart")):
+        prepare_conversion(cfg)
+        train_test_split(cfg)
 
     # start the train val split.
-    train_test_split(cfg)
-
     # start the dataloading here. integrate the data augmentation.
     pt_path = cfg["data_storage"]["pt_location"]
 
@@ -250,20 +238,25 @@ def main():
     val_loader = torch.utils.data.DataLoader(val, batch_size=1, shuffle=False, num_workers=4)
 
     # initialize the model.
-    model = UNet(spatial_dims=3, in_channels=1, out_channels=1)
+    model = UNet(spatial_dims=3, in_channels=1, out_channels=1, channels=(4, 8, 16), strides=(2, 2)).to(device)
 
     # initialize the optimizer.
     optimizer = torch.optim.Adam(model.parameters(), lr=1e-4)
 
     # initialize the loss function.
-    loss_function = torch.nn.CrossEntropyLoss()
+    loss_function = DiceLoss(sigmoid=True)
+    # loss_function = torch.nn.CrossEntropyLoss()
 
     train_loss = 0
     val_loss = 0
     # easy training loop.
-    for epoch in range(1, 100):
+    for epoch in range(1, 50):
         # train the model.
         for x, y in train_loader:
+            # move to gpu
+            x = x.to(device)
+            y = y.to(device)
+
             # forward pass.
             output = model(x)
             # calculate the loss.
@@ -278,6 +271,8 @@ def main():
 
         # iterate over validation dataset.
         for x, y in val_loader:
+            x = x.to(device)
+            y = y.to(device)
             # forward pass.
             output = model(x)
             # calculate the loss.

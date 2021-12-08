@@ -17,7 +17,7 @@ class TorchDataSet(Dataset):
         self.images = os.listdir(directory)
 
     def __len__(self):
-        return len(self.directory)
+        return len(self.images)
 
     def __getitem__(self, idx):
         if torch.is_tensor(idx):
@@ -31,8 +31,8 @@ class TorchDataSet(Dataset):
         mask = file["mask"]
 
         # change the datatype to float32 if you do not use FP16.
-        image = image.to(torch.float32)
-        mask = mask.to(torch.float32)
+        image = image.to(torch.float32).unsqueeze(0)
+        mask = mask.to(torch.float32).unsqueeze(0)
 
         return image, mask
 
