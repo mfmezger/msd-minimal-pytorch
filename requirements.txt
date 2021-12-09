@@ -1,0 +1,5 @@
+nibabel
+torch
+scipy
+parallel_sync
+monai
