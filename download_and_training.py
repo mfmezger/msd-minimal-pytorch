@@ -250,7 +250,7 @@ def main():
     train_loss = 0
     val_loss = 0
     # easy training loop.
-    for epoch in range(1, 50):
+    for epoch in range(1, 5):
         # train the model.
         for x, y in train_loader:
             # move to gpu
