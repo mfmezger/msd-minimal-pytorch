@@ -7,7 +7,7 @@ from pathlib import Path
 import numpy as np
 import random
 import shutil
-import SimpleITK as sitk
+#import SimpleITK as sitk
 # from torchio.transforms import ZNormalization
 from PTDataSet import TorchDataSet
 from parallel_sync import wget
